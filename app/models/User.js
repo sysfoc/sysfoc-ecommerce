@@ -42,6 +42,7 @@ const UserSchema = new mongoose.Schema(
     email: { type: String, required: true, index: true },
     email_verified: { type: Boolean, default: false },
     name: { type: String },
+    phone: { type: String },
     first_name: { type: String },
     last_name: { type: String },
     avatar_url: { type: String },

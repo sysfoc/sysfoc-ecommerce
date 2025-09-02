@@ -31,7 +31,7 @@ export async function POST(request) {
     }
 
     const body = await request.json()
-    const { preferred_currency, preferred_locale, timezone } = body
+    const { name, phone, preferred_currency, preferred_locale, timezone } = body
 
     // Validate input
     if (preferred_currency && !ALLOWED_CURRENCIES.includes(preferred_currency)) {
@@ -54,6 +54,10 @@ export async function POST(request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
+    if (name !== undefined) user.name = name
+    
+    // Handle phone number - add as root level field in User model
+    if (phone !== undefined) user.phone = phone
     // Update only the allowed preference fields
     if (preferred_currency) user.preferred_currency = preferred_currency
     if (preferred_locale) user.preferred_locale = preferred_locale
@@ -67,6 +71,7 @@ export async function POST(request) {
       email: user.email,
       email_verified: user.email_verified,
       name: user.name,
+      phone: user.phone, // Include phone in response
       first_name: user.first_name,
       last_name: user.last_name,
       avatar_url: user.avatar_url,
@@ -80,6 +85,7 @@ export async function POST(request) {
       last_login_ip: user.last_login_ip,
       created_at: user.created_at,
       updated_at: user.updated_at,
+      addresses: user.addresses,
     })
   } catch (error) {
     console.error("Profile update failed:", error)

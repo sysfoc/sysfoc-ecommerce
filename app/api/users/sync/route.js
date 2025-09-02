@@ -19,6 +19,14 @@ export async function POST(request) {
 
     await connectDB()
 
+    let additionalData = {}
+    try {
+      const body = await request.json()
+      additionalData = body || {}
+    } catch (error) {
+      // No body or invalid JSON, continue with empty object
+    }
+
     const clientIp = getClientIp(request)
     const now = new Date()
 
@@ -35,13 +43,32 @@ export async function POST(request) {
     let user = await User.findOne({ uid: decodedToken.uid })
 
     if (user) {
-      // Update existing user
+      // Core Firebase fields (always updated)
       user.email = decodedToken.email
       user.email_verified = decodedToken.email_verified || false
       user.name = decodedToken.name || user.name
       user.avatar_url = decodedToken.picture || user.avatar_url
       user.last_login_ip = clientIp
       user.last_login_at = now
+      user.phone = decodedToken.phone || user.phone || ""
+
+      // Exclude system fields that shouldn't be user-editable
+      const protectedFields = [
+        "uid",
+        "signup_method",
+        "provider_ids",
+        "signup_ip",
+        "signup_at",
+        "login_history",
+        "created_at",
+        "updated_at",
+      ]
+
+      Object.keys(additionalData).forEach((key) => {
+        if (!protectedFields.includes(key) && additionalData[key] !== undefined) {
+          user[key] = additionalData[key]
+        }
+      })
 
       // Add to login history
       user.login_history.push({
@@ -60,7 +87,8 @@ export async function POST(request) {
       // Create new user
       const nameParts = (decodedToken.name || "").split(" ")
 
-      user = new User({
+      const newUserData = {
+        // Identity
         uid: decodedToken.uid,
         email: decodedToken.email,
         email_verified: decodedToken.email_verified || false,
@@ -68,8 +96,45 @@ export async function POST(request) {
         first_name: nameParts[0] || "",
         last_name: nameParts.slice(1).join(" ") || "",
         avatar_url: decodedToken.picture,
+        phone: decodedToken.phone || "",
+
+        // Auth meta
         signup_method: signupMethod,
         provider_ids: providerIds,
+
+        // Status
+        role: "user",
+        is_active: true,
+        is_banned: false,
+
+        // Preferences
+        preferred_currency: "USD",
+        preferred_locale: "en-US",
+        timezone: "UTC",
+        marketing_opt_in: false,
+
+        // Shopping & Orders
+        cart: [],
+        wishlist: [],
+        order_count: 0,
+        total_spent: 0,
+
+        // Customer Preferences
+        email_notifications: true,
+        sms_notifications: false,
+
+        // Customer Status
+        customer_since: now,
+        last_order_at: null,
+
+        // Addresses
+        addresses: [],
+
+        // Defaults
+        default_shipping_address_id: null,
+        default_billing_address_id: null,
+
+        // IP & audit
         signup_ip: clientIp,
         last_login_ip: clientIp,
         last_login_at: now,
@@ -80,8 +145,18 @@ export async function POST(request) {
             method: decodedToken.firebase?.sign_in_provider === "google.com" ? "google" : "password",
           },
         ],
-      })
 
+        // Override with any additional data provided (excluding protected fields)
+        ...Object.keys(additionalData).reduce((acc, key) => {
+          const protectedFields = ["uid", "signup_method", "provider_ids", "signup_ip", "signup_at", "login_history"]
+          if (!protectedFields.includes(key) && additionalData[key] !== undefined) {
+            acc[key] = additionalData[key]
+          }
+          return acc
+        }, {}),
+      }
+
+      user = new User(newUserData)
       await user.save()
     }
 
@@ -92,6 +167,7 @@ export async function POST(request) {
         email: user.email,
         name: user.name,
         role: user.role,
+        phone: user.phone,
       },
     })
   } catch (error) {

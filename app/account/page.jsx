@@ -131,7 +131,10 @@ export default function AccountPage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(profileForm),
+        body: JSON.stringify({
+          name: profileForm.name,
+          phone: profileForm.phone, // Include phone in the request
+        }),
       });
 
       if (response.ok) {
