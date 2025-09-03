@@ -13,6 +13,8 @@ import {
   Badge,
   TextInput,
   Modal,
+  Label,
+  Checkbox,
 } from "flowbite-react";
 import {
   FaUser,
@@ -23,6 +25,8 @@ import {
   FaEdit,
   FaTrash,
   FaPhone,
+  FaBell,
+  FaEnvelope,
 } from "react-icons/fa";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "PKR", "INR", "AED"];
@@ -57,6 +61,8 @@ export default function AccountPage() {
   const [profileForm, setProfileForm] = useState({
     name: "",
     phone: "",
+    email_notifications: true,
+    marketing_communications: false,
   });
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
@@ -105,6 +111,8 @@ export default function AccountPage() {
         setProfileForm({
           name: profile.name || user?.displayName || "",
           phone: profile.phone || "",
+          email_notifications: profile.email_notifications ?? true,
+          marketing_communications: profile.marketing_opt_in ?? false,
         });
         setPreferences({
           preferred_currency: profile.preferred_currency || "USD",
@@ -133,13 +141,21 @@ export default function AccountPage() {
         },
         body: JSON.stringify({
           name: profileForm.name,
-          phone: profileForm.phone, // Include phone in the request
+          phone: profileForm.phone,
+          email_notifications: profileForm.email_notifications,
+          marketing_communications: profileForm.marketing_communications,
         }),
       });
 
       if (response.ok) {
         const updatedProfile = await response.json();
         setUserProfile(updatedProfile);
+        setProfileForm({
+          name: updatedProfile.name || user?.displayName || "",
+          phone: updatedProfile.phone || "",
+          email_notifications: updatedProfile.email_notifications ?? true,
+          marketing_communications: updatedProfile.marketing_opt_in ?? false,
+        });
         setEditingProfile(false);
         setSuccess("Profile updated successfully");
       } else {
@@ -285,10 +301,12 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-theme-bg-light dark:bg-theme-bg-dark flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading account...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary mx-auto mb-4"></div>
+          <p className="text-theme-text-secondary-light dark:text-theme-text-secondary-dark">
+            Loading account...
+          </p>
         </div>
       </div>
     );
@@ -299,26 +317,44 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-theme-bg-light dark:bg-theme-bg-dark">
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {(error || success) && (
+          <div className="fixed top-4 right-4 z-50 max-w-md">
+            {error && (
+              <div className="mb-4 p-4 text-sm text-theme-error rounded-lg bg-red-50 border border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800 shadow-lg">
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-4 p-4 text-sm text-theme-success rounded-lg bg-green-50 border border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-800 shadow-lg">
+                {success}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <Card className="p-4">
               <div className="flex flex-col items-center text-center mb-4">
-                <Avatar
-                  size="lg"
-                  rounded
-                  img={
-                    user.photoURL ||
-                    "https://images.pexels.com/photos/9604304/pexels-photo-9604304.jpeg?auto=compress&cs=tinysrgb&w=600"
-                  }
-                  className="mb-3"
-                />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <div className="relative mb-3">
+                  <Avatar
+                    size="lg"
+                    rounded
+                    img={
+                      user.photoURL ||
+                      userProfile?.avatar_url ||
+                      "https://images.pexels.com/photos/9604304/pexels-photo-9604304.jpeg?auto=compress&cs=tinysrgb&w=600"
+                    }
+                  />
+                </div>
+                <h3 className="text-lg font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark">
                   {userProfile?.name || user?.displayName || "User"}
                 </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-theme-text-secondary-light dark:text-theme-text-secondary-dark">
                   {user?.email}
                 </p>
                 <Badge color="success" className="mt-2">
@@ -331,8 +367,8 @@ export default function AccountPage() {
                   onClick={() => setActiveTab("profile")}
                   className={`w-full flex items-center px-3 py-2 text-sm rounded-lg ${
                     activeTab === "profile"
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      ? "bg-blue-100 text-theme-primary dark:bg-blue-900 dark:text-blue-300"
+                      : "text-theme-text-primary-light hover:bg-theme-hover-bg-light dark:text-theme-text-primary-dark dark:hover:bg-theme-hover-bg-dark"
                   }`}
                 >
                   <FaUser className="mr-3" />
@@ -342,8 +378,8 @@ export default function AccountPage() {
                   onClick={() => setActiveTab("orders")}
                   className={`w-full flex items-center px-3 py-2 text-sm rounded-lg ${
                     activeTab === "orders"
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      ? "bg-blue-100 text-theme-primary dark:bg-blue-900 dark:text-blue-300"
+                      : "text-theme-text-primary-light hover:bg-theme-hover-bg-light dark:text-theme-text-primary-dark dark:hover:bg-theme-hover-bg-dark"
                   }`}
                 >
                   <FaShoppingBag className="mr-3" />
@@ -353,8 +389,8 @@ export default function AccountPage() {
                   onClick={() => setActiveTab("addresses")}
                   className={`w-full flex items-center px-3 py-2 text-sm rounded-lg ${
                     activeTab === "addresses"
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      ? "bg-blue-100 text-theme-primary dark:bg-blue-900 dark:text-blue-300"
+                      : "text-theme-text-primary-light hover:bg-theme-hover-bg-light dark:text-theme-text-primary-dark dark:hover:bg-theme-hover-bg-dark"
                   }`}
                 >
                   <FaMapMarkerAlt className="mr-3" />
@@ -364,8 +400,8 @@ export default function AccountPage() {
                   onClick={() => setActiveTab("preferences")}
                   className={`w-full flex items-center px-3 py-2 text-sm rounded-lg ${
                     activeTab === "preferences"
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      ? "bg-blue-100 text-theme-primary dark:bg-blue-900 dark:text-blue-300"
+                      : "text-theme-text-primary-light hover:bg-theme-hover-bg-light dark:text-theme-text-primary-dark dark:hover:bg-theme-hover-bg-dark"
                   }`}
                 >
                   <FaCog className="mr-3" />
@@ -377,23 +413,11 @@ export default function AccountPage() {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            {error && (
-              <div className="mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50 border border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="mb-4 p-4 text-sm text-green-800 rounded-lg bg-green-50 border border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-800">
-                {success}
-              </div>
-            )}
-
             {/* Profile Tab */}
             {activeTab === "profile" && (
               <Card className="p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  <h2 className="text-xl font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark">
                     Profile Information
                   </h2>
                   <Button
@@ -406,124 +430,256 @@ export default function AccountPage() {
                 </div>
 
                 {editingProfile ? (
-                  <form onSubmit={handleUpdateProfile} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Full Name
-                        </label>
-                        <TextInput
-                          value={profileForm.name}
-                          onChange={(e) =>
-                            setProfileForm({
-                              ...profileForm,
-                              name: e.target.value,
-                            })
-                          }
-                          placeholder="Enter your full name"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Phone Number
-                        </label>
-                        <TextInput
-                          value={profileForm.phone}
-                          onChange={(e) =>
-                            setProfileForm({
-                              ...profileForm,
-                              phone: e.target.value,
-                            })
-                          }
-                          placeholder="Enter your phone number"
-                          type="tel"
-                        />
+                  <form onSubmit={handleUpdateProfile} className="space-y-6">
+                    {/* Basic Information Section */}
+                    <div>
+                      <h3 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4">
+                        Basic Information
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label
+                            htmlFor="name"
+                            className="text-theme-text-secondary-light dark:text-theme-text-secondary-dark font-medium"
+                          >
+                            Full Name
+                          </Label>
+                          <TextInput
+                            id="name"
+                            value={profileForm.name}
+                            onChange={(e) =>
+                              setProfileForm({
+                                ...profileForm,
+                                name: e.target.value,
+                              })
+                            }
+                            placeholder="Enter your full name"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label
+                            htmlFor="phone"
+                            className="text-theme-text-secondary-light dark:text-theme-text-secondary-dark font-medium"
+                          >
+                            Phone Number
+                          </Label>
+                          <TextInput
+                            id="phone"
+                            value={profileForm.phone}
+                            onChange={(e) =>
+                              setProfileForm({
+                                ...profileForm,
+                                phone: e.target.value,
+                              })
+                            }
+                            placeholder="Enter your phone number"
+                            type="tel"
+                          />
+                        </div>
                       </div>
                     </div>
+
+                    <div>
+                      <h3 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4 flex items-center">
+                        <FaBell className="mr-2" />
+                        Notification Preferences
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="flex items-center">
+                          <Checkbox
+                            id="email_notifications"
+                            checked={profileForm.email_notifications}
+                            onChange={(e) =>
+                              setProfileForm({
+                                ...profileForm,
+                                email_notifications: e.target.checked,
+                              })
+                            }
+                          />
+                          <Label
+                            htmlFor="email_notifications"
+                            className="ml-2 text-theme-text-primary-light dark:text-theme-text-primary-dark"
+                          >
+                            <div className="flex items-center">
+                              <FaEnvelope className="mr-2 text-theme-text-muted-light dark:text-theme-text-muted-dark" />
+                              Email Notifications
+                            </div>
+                            <p className="text-sm text-theme-text-muted-light dark:text-theme-text-muted-dark mt-1">
+                              Receive order updates, account security alerts,
+                              and important notifications
+                            </p>
+                          </Label>
+                        </div>
+                        <div className="flex items-center">
+                          <Checkbox
+                            id="marketing_communications"
+                            checked={profileForm.marketing_communications}
+                            onChange={(e) =>
+                              setProfileForm({
+                                ...profileForm,
+                                marketing_communications: e.target.checked,
+                              })
+                            }
+                          />
+                          <Label
+                            htmlFor="marketing_communications"
+                            className="ml-2 text-theme-text-primary-light dark:text-theme-text-primary-dark"
+                          >
+                            <div className="flex items-center">
+                              <FaEnvelope className="mr-2 text-theme-text-muted-light dark:text-theme-text-muted-dark" />
+                              Marketing Communications
+                            </div>
+                            <p className="text-sm text-theme-text-muted-light dark:text-theme-text-muted-dark mt-1">
+                              Receive promotional emails, special offers, and
+                              product updates
+                            </p>
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+
                     <Button type="submit" disabled={updating}>
                       {updating ? "Updating..." : "Save Changes"}
                     </Button>
                   </form>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-6">
+                    {/* Basic Information Display */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Full Name
-                      </label>
-                      <p className="text-gray-900 dark:text-white">
-                        {userProfile?.name ||
-                          user?.displayName ||
-                          "Not provided"}
-                      </p>
+                      <h3 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4">
+                        Basic Information
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
+                            Full Name
+                          </label>
+                          <p className="text-theme-text-primary-light dark:text-theme-text-primary-dark">
+                            {userProfile?.name ||
+                              user?.displayName ||
+                              "Not provided"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
+                            Email Address
+                          </label>
+                          <p className="text-theme-text-primary-light dark:text-theme-text-primary-dark">
+                            {user?.email}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
+                            Phone Number
+                          </label>
+                          <p className="text-theme-text-primary-light dark:text-theme-text-primary-dark flex items-center">
+                            <FaPhone className="mr-2 text-theme-text-muted-light dark:text-theme-text-muted-dark" />
+                            {userProfile?.phone || "Not provided"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
+                            Account Status
+                          </label>
+                          <Badge
+                            color={user?.emailVerified ? "success" : "warning"}
+                          >
+                            {user?.emailVerified
+                              ? "Verified Account"
+                              : "Email Verification Pending"}
+                          </Badge>
+                        </div>
+                      </div>
                     </div>
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Email Address
-                      </label>
-                      <p className="text-gray-900 dark:text-white">
-                        {user?.email}
-                      </p>
+                      <h3 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4 flex items-center">
+                        <FaBell className="mr-2" />
+                        Notification Preferences
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
+                            Email Notifications
+                          </label>
+                          <Badge
+                            color={
+                              userProfile?.email_notifications
+                                ? "success"
+                                : "gray"
+                            }
+                          >
+                            {userProfile?.email_notifications
+                              ? "Enabled"
+                              : "Disabled"}
+                          </Badge>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
+                            Marketing Communications
+                          </label>
+                          <Badge
+                            color={
+                              userProfile?.marketing_opt_in ? "success" : "gray"
+                            }
+                          >
+                            {userProfile?.marketing_opt_in
+                              ? "Enabled"
+                              : "Disabled"}
+                          </Badge>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Account Statistics */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Phone Number
-                      </label>
-                      <p className="text-gray-900 dark:text-white flex items-center">
-                        <FaPhone className="mr-2 text-gray-400" />
-                        {userProfile?.phone || "Not provided"}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Account Status
-                      </label>
-                      <Badge
-                        color={user?.emailVerified ? "success" : "warning"}
-                      >
-                        {user?.emailVerified
-                          ? "Verified Account"
-                          : "Email Verification Pending"}
-                      </Badge>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Member Since
-                      </label>
-                      <p className="text-gray-900 dark:text-white">
-                        {userProfile?.created_at
-                          ? new Date(
-                              userProfile.created_at
-                            ).toLocaleDateString()
-                          : "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Last Login
-                      </label>
-                      <p className="text-gray-900 dark:text-white">
-                        {userProfile?.last_login_at
-                          ? new Date(userProfile.last_login_at).toLocaleString()
-                          : "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Total Orders
-                      </label>
-                      <p className="text-gray-900 dark:text-white">
-                        {userProfile?.order_count || 0} orders
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Total Spent
-                      </label>
-                      <p className="text-gray-900 dark:text-white">
-                        {userProfile?.preferred_currency || "USD"}{" "}
-                        {userProfile?.total_spent || "0.00"}
-                      </p>
+                      <h3 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4">
+                        Account Statistics
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
+                            Member Since
+                          </label>
+                          <p className="text-theme-text-muted-light dark:text-theme-text-muted-dark">
+                            {userProfile?.created_at
+                              ? new Date(
+                                  userProfile.created_at
+                                ).toLocaleDateString()
+                              : "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
+                            Last Login
+                          </label>
+                          <p className="text-theme-text-muted-light dark:text-theme-text-muted-dark">
+                            {userProfile?.last_login_at
+                              ? new Date(
+                                  userProfile.last_login_at
+                                ).toLocaleString()
+                              : "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
+                            Total Orders
+                          </label>
+                          <p className="text-theme-text-muted-light dark:text-theme-text-muted-dark">
+                            {userProfile?.order_count || 0} orders
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
+                            Total Spent
+                          </label>
+                          <p className="text-theme-text-muted-light dark:text-theme-text-muted-dark">
+                            {userProfile?.preferred_currency || "USD"}{" "}
+                            {userProfile?.total_spent || "0.00"}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -533,15 +689,15 @@ export default function AccountPage() {
             {/* Orders Tab */}
             {activeTab === "orders" && (
               <Card className="p-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                <h2 className="text-xl font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4">
                   Order History
                 </h2>
                 <div className="text-center py-8">
-                  <FaShoppingBag className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">
+                  <FaShoppingBag className="mx-auto h-12 w-12 text-theme-text-muted-light dark:text-theme-text-muted-dark mb-4" />
+                  <p className="text-theme-text-secondary-light dark:text-theme-text-secondary-dark">
                     No orders yet
                   </p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                  <p className="text-sm text-theme-text-muted-light dark:text-theme-text-muted-dark mt-2">
                     Your order history will appear here
                   </p>
                 </div>
@@ -552,7 +708,7 @@ export default function AccountPage() {
             {activeTab === "addresses" && (
               <Card className="p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  <h2 className="text-xl font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark">
                     Saved Addresses
                   </h2>
                   <Button size="sm" onClick={handleAddAddress}>
@@ -566,7 +722,7 @@ export default function AccountPage() {
                     {userProfile.addresses.map((address, index) => (
                       <div
                         key={address._id || index}
-                        className="border rounded-lg p-4 dark:border-gray-600"
+                        className="border rounded-lg p-4 border-theme-border-light dark:border-theme-border-dark"
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex items-center flex-wrap gap-2">
@@ -587,22 +743,22 @@ export default function AccountPage() {
                           <div className="flex space-x-2">
                             <button
                               onClick={() => handleEditAddress(address)}
-                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                              className="text-theme-primary hover:text-theme-primary-hover dark:text-theme-primary"
                             >
                               <FaEdit />
                             </button>
                             <button
                               onClick={() => handleDeleteAddress(address._id)}
-                              className="text-red-600 hover:text-red-800 dark:text-red-400"
+                              className="text-theme-error hover:text-red-800 dark:text-theme-error"
                             >
                               <FaTrash />
                             </button>
                           </div>
                         </div>
-                        <div className="text-gray-900 dark:text-white text-sm">
+                        <div className="text-theme-text-primary-light dark:text-theme-text-primary-dark text-sm">
                           <p className="font-medium">{address.full_name}</p>
                           {address.phone && (
-                            <p className="text-gray-600 dark:text-gray-400">
+                            <p className="text-theme-text-secondary-light dark:text-theme-text-secondary-dark">
                               {address.phone}
                             </p>
                           )}
@@ -626,11 +782,11 @@ export default function AccountPage() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <FaMapMarkerAlt className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <p className="text-gray-500 dark:text-gray-400">
+                    <FaMapMarkerAlt className="mx-auto h-12 w-12 text-theme-text-muted-light dark:text-theme-text-muted-dark mb-4" />
+                    <p className="text-theme-text-secondary-light dark:text-theme-text-secondary-dark">
                       No addresses saved
                     </p>
-                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                    <p className="text-sm text-theme-text-muted-light dark:text-theme-text-muted-dark mt-2">
                       Add your shipping and billing addresses
                     </p>
                   </div>
@@ -640,14 +796,14 @@ export default function AccountPage() {
 
             {activeTab === "preferences" && (
               <Card className="p-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                <h2 className="text-xl font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4">
                   Account Preferences
                 </h2>
                 <form onSubmit={handleUpdatePreferences} className="space-y-4">
                   <div>
                     <label
                       htmlFor="currency"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1"
                     >
                       Preferred Currency
                     </label>
@@ -672,7 +828,7 @@ export default function AccountPage() {
                   <div>
                     <label
                       htmlFor="locale"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1"
                     >
                       Preferred Language
                     </label>
@@ -697,7 +853,7 @@ export default function AccountPage() {
                   <div>
                     <label
                       htmlFor="timezone"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                      className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1"
                     >
                       Timezone
                     </label>
@@ -736,7 +892,7 @@ export default function AccountPage() {
         <Modal.Body>
           <form onSubmit={handleSaveAddress} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
                 Address Type
               </label>
               <Select
@@ -750,7 +906,7 @@ export default function AccountPage() {
               </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
                 Street Address
               </label>
               <TextInput
@@ -764,7 +920,7 @@ export default function AccountPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
                   City
                 </label>
                 <TextInput
@@ -777,7 +933,7 @@ export default function AccountPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
                   State/Province
                 </label>
                 <TextInput
@@ -792,7 +948,7 @@ export default function AccountPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
                   Postal Code
                 </label>
                 <TextInput
@@ -808,7 +964,7 @@ export default function AccountPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
                   Country
                 </label>
                 <TextInput
@@ -836,7 +992,7 @@ export default function AccountPage() {
               />
               <label
                 htmlFor="is_default"
-                className="text-sm text-gray-700 dark:text-gray-300"
+                className="text-sm text-theme-text-primary-light dark:text-theme-text-primary-dark"
               >
                 Set as default address
               </label>

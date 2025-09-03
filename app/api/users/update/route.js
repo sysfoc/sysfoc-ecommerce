@@ -31,7 +31,7 @@ export async function POST(request) {
     }
 
     const body = await request.json()
-    const { name, phone, preferred_currency, preferred_locale, timezone } = body
+    const { name, phone, preferred_currency, preferred_locale, timezone, email_notifications, marketing_communications } = body
 
     // Validate input
     if (preferred_currency && !ALLOWED_CURRENCIES.includes(preferred_currency)) {
@@ -58,6 +58,8 @@ export async function POST(request) {
     
     // Handle phone number - add as root level field in User model
     if (phone !== undefined) user.phone = phone
+    if (email_notifications !== undefined) user.email_notifications = email_notifications
+if (marketing_communications !== undefined) user.marketing_opt_in = marketing_communications
     // Update only the allowed preference fields
     if (preferred_currency) user.preferred_currency = preferred_currency
     if (preferred_locale) user.preferred_locale = preferred_locale
@@ -80,6 +82,7 @@ export async function POST(request) {
       preferred_currency: user.preferred_currency,
       preferred_locale: user.preferred_locale,
       timezone: user.timezone,
+      marketing_communications: user.marketing_opt_in,
       marketing_opt_in: user.marketing_opt_in,
       last_login_at: user.last_login_at,
       last_login_ip: user.last_login_ip,
