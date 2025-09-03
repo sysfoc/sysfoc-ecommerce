@@ -2,7 +2,8 @@ import mongoose from "mongoose"
 
 const AddressSchema = new mongoose.Schema(
   {
-    label: { type: String }, // e.g., "Home"
+    type: { type: String, enum: ["shipping", "billing"], required: true },
+    label: { type: String },
     full_name: { type: String },
     phone: { type: String },
     line1: { type: String },
@@ -10,12 +11,12 @@ const AddressSchema = new mongoose.Schema(
     city: { type: String },
     state: { type: String },
     postal_code: { type: String },
-    country: { type: String }, // ISO 3166-1 alpha-2, e.g., "US", "PK"
+    country: { type: String },
     is_default_shipping: { type: Boolean, default: false },
     is_default_billing: { type: Boolean, default: false },
   },
   { _id: true },
-)
+);
 
 const LoginEventSchema = new mongoose.Schema(
   {

@@ -1,3 +1,4 @@
+// app/api/users/addresses/[id]/route.js
 import { NextResponse } from "next/server"
 import { verifyIdToken } from "../../../../../lib/firebaseAdmin"
 import connectDB from "../../../../../lib/db"
@@ -16,10 +17,23 @@ export async function PUT(request, { params }) {
     await connectDB()
 
     const body = await request.json()
-    const { label, full_name, phone, line1, line2, city, state, postal_code, country, is_default_shipping, is_default_billing } = body
+    const { 
+      type, // Add this
+      label, 
+      full_name, 
+      phone, 
+      line1, 
+      line2, 
+      city, 
+      state, 
+      postal_code, 
+      country, 
+      is_default_shipping, 
+      is_default_billing 
+    } = body
     const { id: addressId } = await params
 
-    // Find user and update address FIRST
+    // Find user and update address
     const user = await User.findOne({ uid: decodedToken.uid })
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -30,18 +44,27 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Address not found" }, { status: 404 })
     }
 
-    // THEN handle defaults
-    if (is_default_shipping) {
-      user.addresses.forEach((addr, index) => {
-        if (index !== addressIndex) {
-          addr.is_default_shipping = false
-        }
-      })
+    const currentAddress = user.addresses[addressIndex];
+    
+    // Prevent changing type from billing to shipping if another billing exists
+    if (currentAddress.type === 'billing' && type === 'shipping') {
+      const otherBillingExists = user.addresses.some(
+        (addr, index) => index !== addressIndex && addr.type === 'billing'
+      );
+      
+      if (otherBillingExists) {
+        return NextResponse.json(
+          { error: "Cannot change billing address to shipping. Another billing address exists." }, 
+          { status: 400 }
+        );
+      }
     }
-    if (is_default_billing) {
+
+    // Handle defaults
+    if (type === 'shipping' && is_default_shipping) {
       user.addresses.forEach((addr, index) => {
-        if (index !== addressIndex) {
-          addr.is_default_billing = false
+        if (addr.type === 'shipping' && index !== addressIndex) {
+          addr.is_default_shipping = false
         }
       })
     }
@@ -49,6 +72,7 @@ export async function PUT(request, { params }) {
     // Update the address
     user.addresses[addressIndex] = {
       ...user.addresses[addressIndex],
+      type,
       label,
       full_name,
       phone,
@@ -58,8 +82,8 @@ export async function PUT(request, { params }) {
       state,
       postal_code,
       country,
-      is_default_shipping: is_default_shipping || false,
-      is_default_billing: is_default_billing || false,
+      is_default_shipping: type === 'shipping' ? (is_default_shipping || false) : false,
+      is_default_billing: type === 'billing' || is_default_billing || false,
     }
 
     await user.save()
@@ -70,6 +94,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: "Failed to update address" }, { status: 500 })
   }
 }
+
 
 export async function DELETE(request, { params }) {
   try {
@@ -83,23 +108,25 @@ export async function DELETE(request, { params }) {
 
     await connectDB()
 
-    const { id: addressId } = await params
+    const { id } = params; // Get the address ID from params
 
-    // Find user and remove address
+    // Find user
     const user = await User.findOne({ uid: decodedToken.uid })
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    const addressIndex = user.addresses.findIndex((addr) => addr._id.toString() === addressId)
+    // Find the address index
+    const addressIndex = user.addresses.findIndex((addr) => addr._id.toString() === id)
     if (addressIndex === -1) {
       return NextResponse.json({ error: "Address not found" }, { status: 404 })
     }
 
+    // Remove the address
     user.addresses.splice(addressIndex, 1)
     await user.save()
 
-    return NextResponse.json({ message: "Address deleted successfully", user })
+    return NextResponse.json({ message: "Address deleted successfully" })
   } catch (error) {
     console.error("Delete address error:", error)
     return NextResponse.json({ error: "Failed to delete address" }, { status: 500 })

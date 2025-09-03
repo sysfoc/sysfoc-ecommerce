@@ -6,6 +6,20 @@ import { auth } from "../../lib/firebaseClient.js";
 import { useAuth } from "../../lib/clientAuth.js";
 import { useRouter } from "next/navigation";
 import {
+  User,
+  ShoppingBag,
+  MapPin,
+  Settings,
+  Edit3,
+  Bell,
+  Mail,
+  Phone,
+  Plus,
+  Trash2,
+  Info,
+} from "lucide-react";
+import { Calendar, Clock, DollarSign, Check, X } from "lucide-react";
+import {
   Avatar,
   Card,
   Button,
@@ -16,18 +30,6 @@ import {
   Label,
   Checkbox,
 } from "flowbite-react";
-import {
-  FaUser,
-  FaCog,
-  FaShoppingBag,
-  FaMapMarkerAlt,
-  FaPlus,
-  FaEdit,
-  FaTrash,
-  FaPhone,
-  FaBell,
-  FaEnvelope,
-} from "react-icons/fa";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "PKR", "INR", "AED"];
 const LOCALES = [
@@ -62,11 +64,12 @@ export default function AccountPage() {
     name: "",
     phone: "",
     email_notifications: true,
-    marketing_communications: false,
+    marketing_opt_in: false,
   });
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
   const [addressForm, setAddressForm] = useState({
+    type: "shipping",
     label: "",
     full_name: "",
     phone: "",
@@ -112,7 +115,7 @@ export default function AccountPage() {
           name: profile.name || user?.displayName || "",
           phone: profile.phone || "",
           email_notifications: profile.email_notifications ?? true,
-          marketing_communications: profile.marketing_opt_in ?? false,
+          marketing_opt_in: profile.marketing_opt_in ?? false, // Changed
         });
         setPreferences({
           preferred_currency: profile.preferred_currency || "USD",
@@ -143,7 +146,7 @@ export default function AccountPage() {
           name: profileForm.name,
           phone: profileForm.phone,
           email_notifications: profileForm.email_notifications,
-          marketing_communications: profileForm.marketing_communications,
+          marketing_opt_in: profileForm.marketing_opt_in,
         }),
       });
 
@@ -154,7 +157,7 @@ export default function AccountPage() {
           name: updatedProfile.name || user?.displayName || "",
           phone: updatedProfile.phone || "",
           email_notifications: updatedProfile.email_notifications ?? true,
-          marketing_communications: updatedProfile.marketing_opt_in ?? false,
+          marketing_opt_in: updatedProfile.marketing_opt_in ?? false,
         });
         setEditingProfile(false);
         setSuccess("Profile updated successfully");
@@ -202,6 +205,7 @@ export default function AccountPage() {
   const handleAddAddress = () => {
     setEditingAddress(null);
     setAddressForm({
+      type: "shipping",
       label: "",
       full_name: "",
       phone: "",
@@ -230,6 +234,21 @@ export default function AccountPage() {
 
     try {
       const token = await user.getIdToken();
+
+      if (addressForm.type === "billing" && !editingAddress) {
+        const hasBillingAddress = userProfile?.addresses?.some(
+          (addr) => addr.type === "billing"
+        );
+
+        if (hasBillingAddress) {
+          setError(
+            "You can only have one billing address. Please edit the existing one."
+          );
+          setUpdating(false);
+          return;
+        }
+      }
+
       const url = editingAddress
         ? `/api/users/addresses/${editingAddress._id}`
         : "/api/users/addresses";
@@ -241,7 +260,10 @@ export default function AccountPage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(addressForm),
+        body: JSON.stringify({
+          ...addressForm,
+          is_default_billing: addressForm.type === "billing",
+        }),
       });
 
       if (response.ok) {
@@ -299,6 +321,17 @@ export default function AccountPage() {
     }
   };
 
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError("");
+        setSuccess("");
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [error, success]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-theme-bg-light dark:bg-theme-bg-dark flex items-center justify-center">
@@ -313,56 +346,53 @@ export default function AccountPage() {
   }
 
   if (!user) {
-    return null; // Will redirect via useEffect
+    return null;
   }
 
   return (
     <div className="min-h-screen bg-theme-bg-light dark:bg-theme-bg-dark">
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-4">
         {(error || success) && (
           <div className="fixed top-4 right-4 z-50 max-w-md">
             {error && (
-              <div className="mb-4 p-4 text-sm text-theme-error rounded-lg bg-red-50 border border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800 shadow-lg">
+              <div className="p-3 text-sm text-theme-error rounded-lg bg-red-50 border border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800 shadow-lg">
                 {error}
               </div>
             )}
-
             {success && (
-              <div className="mb-4 p-4 text-sm text-theme-success rounded-lg bg-green-50 border border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-800 shadow-lg">
+              <div className="p-3 text-sm text-theme-success rounded-lg bg-green-50 border border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-800 shadow-lg">
                 {success}
               </div>
             )}
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <Card className="p-4">
               <div className="flex flex-col items-center text-center mb-4">
-                <div className="relative mb-3">
-                  <Avatar
-                    size="lg"
-                    rounded
-                    img={
-                      user.photoURL ||
-                      userProfile?.avatar_url ||
-                      "https://images.pexels.com/photos/9604304/pexels-photo-9604304.jpeg?auto=compress&cs=tinysrgb&w=600"
-                    }
-                  />
-                </div>
-                <h3 className="text-lg font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark">
+                <Avatar
+                  size="lg"
+                  rounded
+                  img={
+                    user.photoURL ||
+                    userProfile?.avatar_url ||
+                    "https://images.pexels.com/photos/9604304/pexels-photo-9604304.jpeg?auto=compress&cs=tinysrgb&w=600"
+                  }
+                />
+                <h3 className="text-lg font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark mt-2">
                   {userProfile?.name || user?.displayName || "User"}
                 </h3>
                 <p className="text-sm text-theme-text-secondary-light dark:text-theme-text-secondary-dark">
                   {user?.email}
                 </p>
-                <Badge color="success" className="mt-2">
+                <Badge color="success" className="mt-1">
                   {user?.emailVerified ? "Verified" : "Unverified"}
                 </Badge>
               </div>
 
-              <nav className="space-y-2">
+              <nav className="space-y-1">
                 <button
                   onClick={() => setActiveTab("profile")}
                   className={`w-full flex items-center px-3 py-2 text-sm rounded-lg ${
@@ -371,7 +401,7 @@ export default function AccountPage() {
                       : "text-theme-text-primary-light hover:bg-theme-hover-bg-light dark:text-theme-text-primary-dark dark:hover:bg-theme-hover-bg-dark"
                   }`}
                 >
-                  <FaUser className="mr-3" />
+                  <User size={16} className="mr-2" />
                   Profile
                 </button>
                 <button
@@ -382,7 +412,7 @@ export default function AccountPage() {
                       : "text-theme-text-primary-light hover:bg-theme-hover-bg-light dark:text-theme-text-primary-dark dark:hover:bg-theme-hover-bg-dark"
                   }`}
                 >
-                  <FaShoppingBag className="mr-3" />
+                  <ShoppingBag size={16} className="mr-2" />
                   Orders
                 </button>
                 <button
@@ -393,7 +423,7 @@ export default function AccountPage() {
                       : "text-theme-text-primary-light hover:bg-theme-hover-bg-light dark:text-theme-text-primary-dark dark:hover:bg-theme-hover-bg-dark"
                   }`}
                 >
-                  <FaMapMarkerAlt className="mr-3" />
+                  <MapPin size={16} className="mr-2" />
                   Addresses
                 </button>
                 <button
@@ -404,7 +434,7 @@ export default function AccountPage() {
                       : "text-theme-text-primary-light hover:bg-theme-hover-bg-light dark:text-theme-text-primary-dark dark:hover:bg-theme-hover-bg-dark"
                   }`}
                 >
-                  <FaCog className="mr-3" />
+                  <Settings size={16} className="mr-2" />
                   Preferences
                 </button>
               </nav>
@@ -415,77 +445,76 @@ export default function AccountPage() {
           <div className="lg:col-span-3">
             {/* Profile Tab */}
             {activeTab === "profile" && (
-              <Card className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark">
-                    Profile Information
+              <Card className="p-3">
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark flex items-center">
+                    <User size={18} className="mr-2" />
+                    Profile
                   </h2>
                   <Button
                     size="sm"
                     onClick={() => setEditingProfile(!editingProfile)}
                   >
-                    <FaEdit className="mr-2" />
+                    <Edit3 size={14} className="mr-1" />
                     {editingProfile ? "Cancel" : "Edit"}
                   </Button>
                 </div>
 
                 {editingProfile ? (
-                  <form onSubmit={handleUpdateProfile} className="space-y-6">
-                    {/* Basic Information Section */}
-                    <div>
-                      <h3 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4">
-                        Basic Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label
-                            htmlFor="name"
-                            className="text-theme-text-secondary-light dark:text-theme-text-secondary-dark font-medium"
-                          >
-                            Full Name
-                          </Label>
-                          <TextInput
-                            id="name"
-                            value={profileForm.name}
-                            onChange={(e) =>
-                              setProfileForm({
-                                ...profileForm,
-                                name: e.target.value,
-                              })
-                            }
-                            placeholder="Enter your full name"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label
-                            htmlFor="phone"
-                            className="text-theme-text-secondary-light dark:text-theme-text-secondary-dark font-medium"
-                          >
-                            Phone Number
-                          </Label>
-                          <TextInput
-                            id="phone"
-                            value={profileForm.phone}
-                            onChange={(e) =>
-                              setProfileForm({
-                                ...profileForm,
-                                phone: e.target.value,
-                              })
-                            }
-                            placeholder="Enter your phone number"
-                            type="tel"
-                          />
-                        </div>
+                  <form onSubmit={handleUpdateProfile} className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div>
+                        <Label
+                          htmlFor="name"
+                          className="text-sm text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-1"
+                        >
+                          <User size={14} className="mr-1" />
+                          Name
+                        </Label>
+                        <TextInput
+                          id="name"
+                          value={profileForm.name}
+                          onChange={(e) =>
+                            setProfileForm({
+                              ...profileForm,
+                              name: e.target.value,
+                            })
+                          }
+                          placeholder="Full name"
+                          required
+                          className="text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label
+                          htmlFor="phone"
+                          className="text-sm text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-1"
+                        >
+                          <Phone size={14} className="mr-1" />
+                          Phone
+                        </Label>
+                        <TextInput
+                          id="phone"
+                          value={profileForm.phone}
+                          onChange={(e) =>
+                            setProfileForm({
+                              ...profileForm,
+                              phone: e.target.value,
+                            })
+                          }
+                          placeholder="Phone number"
+                          type="tel"
+                          className="text-sm"
+                        />
                       </div>
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4 flex items-center">
-                        <FaBell className="mr-2" />
-                        Notification Preferences
-                      </h3>
-                      <div className="space-y-4">
+                      <Label className="text-sm text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2">
+                        <Bell size={14} className="mr-1" />
+                        Notifications
+                      </Label>
+                      <div className="space-y-2">
                         <div className="flex items-center">
                           <Checkbox
                             id="email_notifications"
@@ -499,185 +528,189 @@ export default function AccountPage() {
                           />
                           <Label
                             htmlFor="email_notifications"
-                            className="ml-2 text-theme-text-primary-light dark:text-theme-text-primary-dark"
+                            className="ml-2 text-sm text-theme-text-primary-light dark:text-theme-text-primary-dark"
                           >
-                            <div className="flex items-center">
-                              <FaEnvelope className="mr-2 text-theme-text-muted-light dark:text-theme-text-muted-dark" />
-                              Email Notifications
-                            </div>
-                            <p className="text-sm text-theme-text-muted-light dark:text-theme-text-muted-dark mt-1">
-                              Receive order updates, account security alerts,
-                              and important notifications
-                            </p>
+                            Email alerts
                           </Label>
                         </div>
                         <div className="flex items-center">
                           <Checkbox
-                            id="marketing_communications"
-                            checked={profileForm.marketing_communications}
+                            id="marketing_opt_in"
+                            checked={profileForm.marketing_opt_in} // Changed to marketing_opt_in
                             onChange={(e) =>
                               setProfileForm({
                                 ...profileForm,
-                                marketing_communications: e.target.checked,
+                                marketing_opt_in: e.target.checked,
                               })
                             }
-                          />
+                           />
                           <Label
-                            htmlFor="marketing_communications"
-                            className="ml-2 text-theme-text-primary-light dark:text-theme-text-primary-dark"
+                            htmlFor="marketing_opt_in"
+                            className="ml-2 text-sm text-theme-text-primary-light dark:text-theme-text-primary-dark"
                           >
-                            <div className="flex items-center">
-                              <FaEnvelope className="mr-2 text-theme-text-muted-light dark:text-theme-text-muted-dark" />
-                              Marketing Communications
-                            </div>
-                            <p className="text-sm text-theme-text-muted-light dark:text-theme-text-muted-dark mt-1">
-                              Receive promotional emails, special offers, and
-                              product updates
-                            </p>
+                            {" "}
+                            Marketing emails
                           </Label>
                         </div>
                       </div>
                     </div>
 
-                    <Button type="submit" disabled={updating}>
-                      {updating ? "Updating..." : "Save Changes"}
+                    <Button type="submit" disabled={updating} size="sm">
+                      {updating ? "Saving..." : "Save"}
                     </Button>
                   </form>
                 ) : (
-                  <div className="space-y-6">
-                    {/* Basic Information Display */}
-                    <div>
-                      <h3 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4">
-                        Basic Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                            Full Name
-                          </label>
-                          <p className="text-theme-text-primary-light dark:text-theme-text-primary-dark">
-                            {userProfile?.name ||
-                              user?.displayName ||
-                              "Not provided"}
-                          </p>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
+                      <div className="bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg">
+                        <div className="text-xs font-semibold text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2 uppercase tracking-wide">
+                          <User size={14} className="mr-1.5" />
+                          Full Name
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                            Email Address
-                          </label>
-                          <p className="text-theme-text-primary-light dark:text-theme-text-primary-dark">
-                            {user?.email}
-                          </p>
+                        <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
+                          {userProfile?.name ||
+                            user?.displayName ||
+                            "Not provided"}
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                            Phone Number
-                          </label>
-                          <p className="text-theme-text-primary-light dark:text-theme-text-primary-dark flex items-center">
-                            <FaPhone className="mr-2 text-theme-text-muted-light dark:text-theme-text-muted-dark" />
-                            {userProfile?.phone || "Not provided"}
-                          </p>
+                      </div>
+
+                      <div className="bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg">
+                        <div className="text-xs font-semibold text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2 uppercase tracking-wide">
+                          <Mail size={14} className="mr-1.5" />
+                          Email Address
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                            Account Status
-                          </label>
+                        <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark truncate">
+                          {user?.email}
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg">
+                        <div className="text-xs font-semibold text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2 uppercase tracking-wide">
+                          <Phone size={14} className="mr-1.5" />
+                          Phone Number
+                        </div>
+                        <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
+                          {userProfile?.phone || "Not provided"}
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg">
+                        <div className="text-xs font-semibold text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2 uppercase tracking-wide">
+                          <ShoppingBag size={14} className="mr-1.5" />
+                          Total Orders
+                        </div>
+                        <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
+                          {userProfile?.order_count || 0} orders
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg">
+                        <div className="text-xs font-semibold text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2 uppercase tracking-wide">
+                          <DollarSign size={14} className="mr-1.5" />
+                          Total Spent
+                        </div>
+                        <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
+                          {userProfile?.preferred_currency || "USD"}{" "}
+                          {userProfile?.total_spent || "0.00"}
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg">
+                        <div className="text-xs font-semibold text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2 uppercase tracking-wide">
+                          <Bell size={14} className="mr-1.5" />
+                          Email Notifications
+                        </div>
+                        <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark flex items-center">
+                          {userProfile?.email_notifications ? (
+                            <>
+                              <Check
+                                size={14}
+                                className="text-green-500 mr-1.5"
+                              />
+                              <span className="text-green-600 dark:text-green-400">
+                                Enabled
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <X size={14} className="text-red-500 mr-1.5" />
+                              <span className="text-red-600 dark:text-red-400">
+                                Disabled
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg">
+                        <div className="text-xs font-semibold text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2 uppercase tracking-wide">
+                          <Mail size={14} className="mr-1.5" />
+                          Marketing Emails
+                        </div>
+                        <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark flex items-center">
+                          {userProfile?.marketing_opt_in ? (
+                            <>
+                              <Check
+                                size={14}
+                                className="text-green-500 mr-1.5"
+                              />
+                              <span className="text-green-600 dark:text-green-400">
+                                Enabled
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <X size={14} className="text-red-500 mr-1.5" />
+                              <span className="text-red-600 dark:text-red-400">
+                                Disabled
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg">
+                        <div className="text-xs font-semibold text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2 uppercase tracking-wide">
+                          <User size={14} className="mr-1.5" />
+                          Account Status
+                        </div>
+                        <div className="flex items-center">
                           <Badge
                             color={user?.emailVerified ? "success" : "warning"}
+                            className="text-xs font-medium"
                           >
                             {user?.emailVerified
-                              ? "Verified Account"
-                              : "Email Verification Pending"}
+                              ? "Verified"
+                              : "Pending Verification"}
                           </Badge>
                         </div>
                       </div>
-                    </div>
 
-                    <div>
-                      <h3 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4 flex items-center">
-                        <FaBell className="mr-2" />
-                        Notification Preferences
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                            Email Notifications
-                          </label>
-                          <Badge
-                            color={
-                              userProfile?.email_notifications
-                                ? "success"
-                                : "gray"
-                            }
-                          >
-                            {userProfile?.email_notifications
-                              ? "Enabled"
-                              : "Disabled"}
-                          </Badge>
+                      <div className="bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg">
+                        <div className="text-xs font-semibold text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2 uppercase tracking-wide">
+                          <Calendar size={14} className="mr-1.5" />
+                          Member Since
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                            Marketing Communications
-                          </label>
-                          <Badge
-                            color={
-                              userProfile?.marketing_opt_in ? "success" : "gray"
-                            }
-                          >
-                            {userProfile?.marketing_opt_in
-                              ? "Enabled"
-                              : "Disabled"}
-                          </Badge>
+                        <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
+                          {userProfile?.created_at
+                            ? new Date(
+                                userProfile.created_at
+                              ).toLocaleDateString()
+                            : "N/A"}
                         </div>
                       </div>
-                    </div>
 
-                    {/* Account Statistics */}
-                    <div>
-                      <h3 className="text-lg font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4">
-                        Account Statistics
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                            Member Since
-                          </label>
-                          <p className="text-theme-text-muted-light dark:text-theme-text-muted-dark">
-                            {userProfile?.created_at
-                              ? new Date(
-                                  userProfile.created_at
-                                ).toLocaleDateString()
-                              : "N/A"}
-                          </p>
+                      <div className="bg-gray-50 dark:bg-gray-800/30 p-3 rounded-lg">
+                        <div className="text-xs font-semibold text-theme-text-secondary-light dark:text-theme-text-secondary-dark flex items-center mb-2 uppercase tracking-wide">
+                          <Clock size={14} className="mr-1.5" />
+                          Last Login
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                            Last Login
-                          </label>
-                          <p className="text-theme-text-muted-light dark:text-theme-text-muted-dark">
-                            {userProfile?.last_login_at
-                              ? new Date(
-                                  userProfile.last_login_at
-                                ).toLocaleString()
-                              : "N/A"}
-                          </p>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                            Total Orders
-                          </label>
-                          <p className="text-theme-text-muted-light dark:text-theme-text-muted-dark">
-                            {userProfile?.order_count || 0} orders
-                          </p>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                            Total Spent
-                          </label>
-                          <p className="text-theme-text-muted-light dark:text-theme-text-muted-dark">
-                            {userProfile?.preferred_currency || "USD"}{" "}
-                            {userProfile?.total_spent || "0.00"}
-                          </p>
+                        <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
+                          {userProfile?.last_login_at
+                            ? new Date(
+                                userProfile.last_login_at
+                              ).toLocaleDateString()
+                            : "N/A"}
                         </div>
                       </div>
                     </div>
@@ -685,19 +718,21 @@ export default function AccountPage() {
                 )}
               </Card>
             )}
-
             {/* Orders Tab */}
             {activeTab === "orders" && (
-              <Card className="p-6">
+              <Card className="p-4 h-fit">
                 <h2 className="text-xl font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4">
                   Order History
                 </h2>
-                <div className="text-center py-8">
-                  <FaShoppingBag className="mx-auto h-12 w-12 text-theme-text-muted-light dark:text-theme-text-muted-dark mb-4" />
+                <div className="text-center py-12">
+                  <ShoppingBag
+                    size={48}
+                    className="mx-auto text-theme-text-muted-light dark:text-theme-text-muted-dark mb-3"
+                  />
                   <p className="text-theme-text-secondary-light dark:text-theme-text-secondary-dark">
                     No orders yet
                   </p>
-                  <p className="text-sm text-theme-text-muted-light dark:text-theme-text-muted-dark mt-2">
+                  <p className="text-sm text-theme-text-muted-light dark:text-theme-text-muted-dark mt-1">
                     Your order history will appear here
                   </p>
                 </div>
@@ -706,27 +741,36 @@ export default function AccountPage() {
 
             {/* Addresses Tab */}
             {activeTab === "addresses" && (
-              <Card className="p-6">
+              <Card className="p-4 h-fit">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark">
                     Saved Addresses
                   </h2>
                   <Button size="sm" onClick={handleAddAddress}>
-                    <FaPlus className="mr-2" />
+                    <Plus size={16} className="mr-1" />
                     Add Address
                   </Button>
                 </div>
 
                 {userProfile?.addresses && userProfile.addresses.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {userProfile.addresses.map((address, index) => (
                       <div
                         key={address._id || index}
-                        className="border rounded-lg p-4 border-theme-border-light dark:border-theme-border-dark"
+                        className="border rounded-lg p-3 border-theme-border-light dark:border-theme-border-dark"
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center flex-wrap gap-2">
-                            <Badge color="blue" className="mr-1">
+                          <div className="flex items-center flex-wrap gap-1">
+                            <Badge
+                              color={
+                                address.type === "shipping" ? "blue" : "purple"
+                              }
+                            >
+                              {address.type === "shipping"
+                                ? "Shipping"
+                                : "Billing"}
+                            </Badge>
+                            <Badge color="gray">
                               {address.label || "Address"}
                             </Badge>
                             {address.is_default_shipping && (
@@ -745,13 +789,13 @@ export default function AccountPage() {
                               onClick={() => handleEditAddress(address)}
                               className="text-theme-primary hover:text-theme-primary-hover dark:text-theme-primary"
                             >
-                              <FaEdit />
+                              <Edit3 size={16} />
                             </button>
                             <button
                               onClick={() => handleDeleteAddress(address._id)}
                               className="text-theme-error hover:text-red-800 dark:text-theme-error"
                             >
-                              <FaTrash />
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         </div>
@@ -781,12 +825,15 @@ export default function AccountPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <FaMapMarkerAlt className="mx-auto h-12 w-12 text-theme-text-muted-light dark:text-theme-text-muted-dark mb-4" />
+                  <div className="text-center py-12">
+                    <MapPin
+                      size={48}
+                      className="mx-auto text-theme-text-muted-light dark:text-theme-text-muted-dark mb-3"
+                    />
                     <p className="text-theme-text-secondary-light dark:text-theme-text-secondary-dark">
                       No addresses saved
                     </p>
-                    <p className="text-sm text-theme-text-muted-light dark:text-theme-text-muted-dark mt-2">
+                    <p className="text-sm text-theme-text-muted-light dark:text-theme-text-muted-dark mt-1">
                       Add your shipping and billing addresses
                     </p>
                   </div>
@@ -795,11 +842,11 @@ export default function AccountPage() {
             )}
 
             {activeTab === "preferences" && (
-              <Card className="p-6">
+              <Card className="p-4 h-fit">
                 <h2 className="text-xl font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark mb-4">
                   Account Preferences
                 </h2>
-                <form onSubmit={handleUpdatePreferences} className="space-y-4">
+                <form onSubmit={handleUpdatePreferences} className="space-y-3">
                   <div>
                     <label
                       htmlFor="currency"
@@ -875,7 +922,7 @@ export default function AccountPage() {
                     </Select>
                   </div>
 
-                  <Button type="submit" disabled={updating} className="mt-4">
+                  <Button type="submit" disabled={updating} className="mt-3">
                     {updating ? "Updating..." : "Update Preferences"}
                   </Button>
                 </form>
@@ -891,39 +938,118 @@ export default function AccountPage() {
         </Modal.Header>
         <Modal.Body>
           <form onSubmit={handleSaveAddress} className="space-y-4">
+            {/* Address Type Selection */}
             <div>
-              <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                Address Type
-              </label>
+              <Label htmlFor="addressType" value="Address Type" />
               <Select
-                value={addressForm.type}
-                onChange={(e) =>
-                  setAddressForm({ ...addressForm, type: e.target.value })
-                }
+                id="addressType"
+                value={addressForm.type || "shipping"}
+                onChange={(e) => {
+                  const type = e.target.value;
+                  setAddressForm({
+                    ...addressForm,
+                    type,
+                    // Reset default flags when changing type
+                    is_default_shipping:
+                      type === "shipping" && addressForm.is_default_shipping,
+                    is_default_billing: type === "billing",
+                  });
+                }}
+                required
               >
                 <option value="shipping">Shipping Address</option>
                 <option value="billing">Billing Address</option>
               </Select>
             </div>
+
+            {/* Show appropriate badge based on type */}
+            {addressForm.type && (
+              <Badge
+                color={addressForm.type === "shipping" ? "blue" : "purple"}
+              >
+                {addressForm.type === "shipping"
+                  ? "Shipping Address"
+                  : "Billing Address"}
+              </Badge>
+            )}
+
+            {/* Address Label */}
             <div>
-              <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                Street Address
-              </label>
+              <Label htmlFor="label" value="Address Label (e.g., Home, Work)" />
               <TextInput
-                value={addressForm.street}
+                id="label"
+                value={addressForm.label}
                 onChange={(e) =>
-                  setAddressForm({ ...addressForm, street: e.target.value })
+                  setAddressForm({ ...addressForm, label: e.target.value })
+                }
+                placeholder="Home, Office, etc."
+              />
+            </div>
+
+            {/* Full Name */}
+            <div>
+              <Label htmlFor="full_name" value="Full Name" />
+              <TextInput
+                id="full_name"
+                value={addressForm.full_name}
+                onChange={(e) =>
+                  setAddressForm({ ...addressForm, full_name: e.target.value })
+                }
+                placeholder="Enter full name"
+                required
+              />
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <Label htmlFor="phone" value="Phone Number" />
+              <TextInput
+                id="phone"
+                value={addressForm.phone}
+                onChange={(e) =>
+                  setAddressForm({ ...addressForm, phone: e.target.value })
+                }
+                placeholder="Enter phone number"
+                type="tel"
+              />
+            </div>
+
+            {/* Street Address Line 1 */}
+            <div>
+              <Label htmlFor="line1" value="Street Address" />
+              <TextInput
+                id="line1"
+                value={addressForm.line1}
+                onChange={(e) =>
+                  setAddressForm({ ...addressForm, line1: e.target.value })
                 }
                 placeholder="Enter street address"
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+
+            {/* Street Address Line 2 */}
+            <div>
+              <Label
+                htmlFor="line2"
+                value="Apartment, Suite, etc. (Optional)"
+              />
+              <TextInput
+                id="line2"
+                value={addressForm.line2}
+                onChange={(e) =>
+                  setAddressForm({ ...addressForm, line2: e.target.value })
+                }
+                placeholder="Apartment, suite, unit, etc."
+              />
+            </div>
+
+            {/* City, State, and Postal Code */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                  City
-                </label>
+                <Label htmlFor="city" value="City" />
                 <TextInput
+                  id="city"
                   value={addressForm.city}
                   onChange={(e) =>
                     setAddressForm({ ...addressForm, city: e.target.value })
@@ -933,10 +1059,9 @@ export default function AccountPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                  State/Province
-                </label>
+                <Label htmlFor="state" value="State/Province" />
                 <TextInput
+                  id="state"
                   value={addressForm.state}
                   onChange={(e) =>
                     setAddressForm({ ...addressForm, state: e.target.value })
@@ -945,13 +1070,10 @@ export default function AccountPage() {
                   required
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                  Postal Code
-                </label>
+                <Label htmlFor="postal_code" value="Postal Code" />
                 <TextInput
+                  id="postal_code"
                   value={addressForm.postal_code}
                   onChange={(e) =>
                     setAddressForm({
@@ -963,40 +1085,48 @@ export default function AccountPage() {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-theme-text-secondary-light dark:text-theme-text-secondary-dark mb-1">
-                  Country
-                </label>
-                <TextInput
-                  value={addressForm.country}
-                  onChange={(e) =>
-                    setAddressForm({ ...addressForm, country: e.target.value })
-                  }
-                  placeholder="Country"
-                  required
-                />
-              </div>
             </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="is_default"
-                checked={addressForm.is_default}
+
+            {/* Country */}
+            <div>
+              <Label htmlFor="country" value="Country" />
+              <TextInput
+                id="country"
+                value={addressForm.country}
                 onChange={(e) =>
-                  setAddressForm({
-                    ...addressForm,
-                    is_default: e.target.checked,
-                  })
+                  setAddressForm({ ...addressForm, country: e.target.value })
                 }
-                className="mr-2"
+                placeholder="Country"
+                required
               />
-              <label
-                htmlFor="is_default"
-                className="text-sm text-theme-text-primary-light dark:text-theme-text-primary-dark"
-              >
-                Set as default address
-              </label>
             </div>
+
+            {/* Conditional fields based on address type */}
+            {addressForm.type === "shipping" && (
+              <div className="flex items-center">
+                <Checkbox
+                  id="is_default_shipping"
+                  checked={addressForm.is_default_shipping}
+                  onChange={(e) =>
+                    setAddressForm({
+                      ...addressForm,
+                      is_default_shipping: e.target.checked,
+                    })
+                  }
+                />
+                <Label htmlFor="is_default_shipping" className="ml-2">
+                  Set as default shipping address
+                </Label>
+              </div>
+            )}
+
+            {addressForm.type === "billing" && (
+              <div className="text-sm text-blue-600 dark:text-blue-400 flex items-center">
+                <Info size={16} className="mr-2" />
+                You can only have one billing address, which will be set as
+                default.
+              </div>
+            )}
           </form>
         </Modal.Body>
         <Modal.Footer>
