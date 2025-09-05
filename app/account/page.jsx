@@ -378,7 +378,7 @@ export default function AccountPage() {
                   img={
                     user.photoURL ||
                     userProfile?.avatar_url ||
-                    "https://images.pexels.com/photos/9604304/pexels-photo-9604304.jpeg?auto=compress&cs=tinysrgb&w=600"
+                    "https://www.shutterstock.com/image-vector/default-avatar-profile-icon-social-600nw-1906669723.jpg?auto=compress&cs=tinysrgb&w=600"
                   }
                 />
                 <h3 className="text-lg font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark mt-2">

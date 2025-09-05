@@ -1,34 +1,31 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import {
-  createUserWithEmailAndPassword,
-  signInWithPopup,
-  updateProfile,
-} from "firebase/auth";
-import { auth, googleProvider } from "../../lib/firebaseClient.js";
-import { useRouter } from "next/navigation";
+import { useState } from "react"
+import { createUserWithEmailAndPassword, signInWithPopup, updateProfile, sendEmailVerification } from "firebase/auth"
+import { auth, googleProvider } from "../../lib/firebaseClient.js"
+import { useRouter } from "next/navigation"
 
 export default function SignUpPage() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [showVerificationMessage, setShowVerificationMessage] = useState(false)
+  const router = useRouter()
 
   const syncUser = async (user, additionalData = {}) => {
     try {
-      const token = await user.getIdToken();
+      const token = await user.getIdToken()
 
       // Include phone in additional data
       const userData = {
         ...additionalData,
         phone: phone || additionalData.phone || "",
-      };
+      }
 
-      document.cookie = `__session=${token}; path=/; max-age=3600; secure; samesite=strict`;
+      document.cookie = `__session=${token}; path=/; max-age=3600; secure; samesite=strict`
 
       const response = await fetch("/api/users/sync", {
         method: "POST",
@@ -37,68 +34,114 @@ export default function SignUpPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(userData),
-      });
+      })
 
       if (!response.ok) {
-        throw new Error("Failed to sync user");
+        throw new Error("Failed to sync user")
       }
     } catch (error) {
-      console.error("User sync failed:", error);
+      console.error("User sync failed:", error)
     }
-  };
+  }
 
   const handleEmailSignUp = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+    e.preventDefault()
+    setLoading(true)
+    setError("")
 
     try {
-      const result = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      const result = await createUserWithEmailAndPassword(auth, email, password)
 
       // Update the user's display name
       await updateProfile(result.user, {
         displayName: name,
-      });
+      })
 
-      await syncUser(result.user, { phone });
+      // Create actionCodeSettings here to avoid import issues
+      const actionCodeSettings = {
+        url: `${window.location.origin}/verify-email`,
+        handleCodeInApp: true,
+      }
 
-      router.push("/");
+      console.log("[DEBUG] Sending verification email with settings:", actionCodeSettings)
+
+      await sendEmailVerification(result.user, actionCodeSettings)
+
+      await syncUser(result.user, { phone })
+
+      setShowVerificationMessage(true)
     } catch (error) {
-      setError(error.message);
+      console.error("[v0] Sign up error:", error)
+      setError(error.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleGoogleSignUp = async () => {
-    setLoading(true);
-    setError("");
+    setLoading(true)
+    setError("")
 
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      await syncUser(result.user, { phone });
-      router.push("/");
+      const result = await signInWithPopup(auth, googleProvider)
+      await syncUser(result.user, { phone })
+      router.push("/")
     } catch (error) {
-      setError(error.message);
+      setError(error.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
+
+  if (showVerificationMessage) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center">
+          <div className="rounded-full bg-green-100 dark:bg-green-900 p-3 mx-auto mb-4 w-16 h-16 flex items-center justify-center">
+            <svg
+              className="w-8 h-8 text-green-600 dark:text-green-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              ></path>
+            </svg>
+          </div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Check Your Email</h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            We've sent a verification link to <strong>{email}</strong>. Please check your inbox and click the link to
+            verify your account.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => router.push("/")}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Continue to Homepage
+            </button>
+            <button
+              onClick={() => setShowVerificationMessage(false)}
+              className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            >
+              Back to Sign Up
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Create Account
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
-            Join us and start shopping
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create Account</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Join us and start shopping</p>
         </div>
 
         {error && (
@@ -109,10 +152,7 @@ export default function SignUpPage() {
 
         <form onSubmit={handleEmailSignUp} className="space-y-4">
           <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Full Name
             </label>
             <input
@@ -126,10 +166,7 @@ export default function SignUpPage() {
           </div>
 
           <div>
-            <label
-              htmlFor="phone"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Phone Number
             </label>
             <input
@@ -142,10 +179,7 @@ export default function SignUpPage() {
           </div>
 
           <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Email
             </label>
             <input
@@ -159,10 +193,7 @@ export default function SignUpPage() {
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Password
             </label>
             <input
@@ -191,9 +222,7 @@ export default function SignUpPage() {
               <div className="w-full border-t border-gray-300 dark:border-gray-600" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                Or
-              </span>
+              <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">Or</span>
             </div>
           </div>
 
@@ -235,5 +264,5 @@ export default function SignUpPage() {
         </p>
       </div>
     </div>
-  );
+  )
 }

@@ -118,7 +118,7 @@ const Header = () => {
                         rounded
                         img={
                           user.photoURL ||
-                          "https://images.pexels.com/photos/9604304/pexels-photo-9604304.jpeg?auto=compress&cs=tinysrgb&w=600"
+                          "https://www.shutterstock.com/image-vector/default-avatar-profile-icon-social-600nw-1906669723.jpg?auto=compress&cs=tinysrgb&w=600"
                         }
                       />
                     </span>

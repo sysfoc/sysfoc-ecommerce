@@ -6,6 +6,7 @@ import "./globals.css";
 import Header from "./components/Header";
 import Footerr from "./components/Footerr";
 import { DarkModeProvider } from "./context/DarkModeProvider";
+import EmailVerificationBanner from "./components/email-verification-banner"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -24,7 +25,10 @@ export default function RootLayout({ children }) {
       >
         <DarkModeProvider>
           <Header />
-          <Suspense fallback={null}>{children}</Suspense>
+          <Suspense fallback={null}>
+          <EmailVerificationBanner />
+            {children}
+          </Suspense>
           <Analytics />
           <Footerr />
         </DarkModeProvider>
