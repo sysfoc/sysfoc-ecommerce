@@ -1,3 +1,4 @@
+// app/api/users/sync/route.js
 import { NextResponse } from "next/server"
 import { getIdTokenFromHeader, verifyIdToken, getClientIp } from "../../../../lib/auth"
 import connectDB from "../../../../lib/db"
@@ -43,14 +44,15 @@ export async function POST(request) {
     let user = await User.findOne({ uid: decodedToken.uid })
 
     if (user) {
-      // Core Firebase fields (always updated)
+      // Core Firebase fields (always updated) - ONLY these fields
       user.email = decodedToken.email
       user.email_verified = decodedToken.email_verified || false
-      user.name = decodedToken.name || user.name
       user.avatar_url = decodedToken.picture || user.avatar_url
       user.last_login_ip = clientIp
       user.last_login_at = now
-      user.phone = decodedToken.phone || user.phone || ""
+
+      // DO NOT override user-editable fields like name, phone, email_notifications, marketing_opt_in
+      // These should only be updated through the profile update API
 
       // Exclude system fields that shouldn't be user-editable
       const protectedFields = [
@@ -62,6 +64,10 @@ export async function POST(request) {
         "login_history",
         "created_at",
         "updated_at",
+        "name", // Added - don't sync name from Firebase
+        "phone", // Added - don't sync phone from Firebase
+        "email_notifications", // Added - don't sync from Firebase
+        "marketing_opt_in", // Added - don't sync from Firebase
       ]
 
       Object.keys(additionalData).forEach((key) => {
@@ -84,7 +90,7 @@ export async function POST(request) {
 
       await user.save()
     } else {
-      // Create new user
+      // Create new user - only use Firebase data for initial creation
       const nameParts = (decodedToken.name || "").split(" ")
 
       const newUserData = {

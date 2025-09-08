@@ -1,3 +1,4 @@
+// app/api/users/update/route.js
 import { NextResponse } from "next/server";
 import { getIdTokenFromHeader, verifyIdToken } from "../../../../lib/auth.js";
 import connectDB from "../../../../lib/db.js";

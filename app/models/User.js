@@ -1,3 +1,4 @@
+// this is the app/models/User.js file
 import mongoose from "mongoose"
 
 const AddressSchema = new mongoose.Schema(

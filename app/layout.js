@@ -7,6 +7,7 @@ import Header from "./components/Header";
 import Footerr from "./components/Footerr";
 import { DarkModeProvider } from "./context/DarkModeProvider";
 import EmailVerificationBanner from "./components/email-verification-banner"
+import { UserProvider } from './context/UserContext'
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const robotoMono = Roboto_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
         className={`${inter.variable} ${robotoMono.variable} bg-white dark:bg-gray-900 dark:text-gray-300 text-black transition-colors duration-300`}
       >
         <DarkModeProvider>
+            <UserProvider>
           <Header />
           <Suspense fallback={null}>
           <EmailVerificationBanner />
@@ -31,6 +33,7 @@ export default function RootLayout({ children }) {
           </Suspense>
           <Analytics />
           <Footerr />
+            </UserProvider>
         </DarkModeProvider>
       </body>
     </html>

@@ -1,9 +1,9 @@
+// app/account/page.jsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "../../lib/firebaseClient.js";
-import { useAuth } from "../../lib/clientAuth.js";
 import { useRouter } from "next/navigation";
 import {
   User,
@@ -30,6 +30,7 @@ import {
   Label,
   Checkbox,
 } from "flowbite-react";
+import { useUser } from "../context/UserContext.js";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "PKR", "INR", "AED"];
 const LOCALES = [
@@ -51,8 +52,13 @@ const TIMEZONES = [
 ];
 
 export default function AccountPage() {
-  const { user, loading } = useAuth();
-  const [userProfile, setUserProfile] = useState(null);
+  const { 
+    user: dbUser, 
+    firebaseUser, 
+    loading: userLoading, 
+    refreshUser, 
+    updateUserProfile 
+  } = useUser();
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -91,42 +97,22 @@ export default function AccountPage() {
   });
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!userLoading && !firebaseUser) {
       router.push("/sign-in");
-    } else if (user) {
-      fetchUserProfile();
-    }
-  }, [user, loading, router]);
-
-  const fetchUserProfile = async () => {
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch("/api/users/profile", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+    } else if (dbUser) {
+      setProfileForm({
+        name: dbUser.name || firebaseUser?.displayName || "",
+        phone: dbUser.phone || "",
+        email_notifications: dbUser.email_notifications ?? true,
+        marketing_opt_in: dbUser.marketing_opt_in ?? false,
       });
-
-      if (response.ok) {
-        const profile = await response.json();
-        console.log("Fetched profile:", profile);
-        setUserProfile(profile);
-        setProfileForm({
-          name: profile.name || user?.displayName || "",
-          phone: profile.phone || "",
-          email_notifications: profile.email_notifications ?? true,
-          marketing_opt_in: profile.marketing_opt_in ?? false, // Changed
-        });
-        setPreferences({
-          preferred_currency: profile.preferred_currency || "USD",
-          preferred_locale: profile.preferred_locale || "en-US",
-          timezone: profile.timezone || "UTC",
-        });
-      }
-    } catch (error) {
-      console.error("Failed to fetch user profile:", error);
+      setPreferences({
+        preferred_currency: dbUser.preferred_currency || "USD",
+        preferred_locale: dbUser.preferred_locale || "en-US",
+        timezone: dbUser.timezone || "UTC",
+      });
     }
-  };
+  }, [dbUser, firebaseUser, userLoading, router]);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -135,34 +121,19 @@ export default function AccountPage() {
     setSuccess("");
 
     try {
-      const token = await user.getIdToken();
-      const response = await fetch("/api/users/update", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: profileForm.name,
-          phone: profileForm.phone,
-          email_notifications: profileForm.email_notifications,
-          marketing_opt_in: profileForm.marketing_opt_in,
-        }),
+      const result = await updateUserProfile({
+        name: profileForm.name,
+        phone: profileForm.phone,
+        email_notifications: profileForm.email_notifications,
+        marketing_opt_in: profileForm.marketing_opt_in,
       });
 
-      if (response.ok) {
-        const updatedProfile = await response.json();
-        setUserProfile(updatedProfile);
-        setProfileForm({
-          name: updatedProfile.name || user?.displayName || "",
-          phone: updatedProfile.phone || "",
-          email_notifications: updatedProfile.email_notifications ?? true,
-          marketing_opt_in: updatedProfile.marketing_opt_in ?? false,
-        });
+      if (result.success) {
         setEditingProfile(false);
         setSuccess("Profile updated successfully");
+        await refreshUser(); // Refresh user data across the app
       } else {
-        throw new Error("Failed to update profile");
+        throw new Error(result.error || "Failed to update profile");
       }
     } catch (error) {
       setError(error.message);
@@ -178,22 +149,13 @@ export default function AccountPage() {
     setSuccess("");
 
     try {
-      const token = await user.getIdToken();
-      const response = await fetch("/api/users/update", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(preferences),
-      });
+      const result = await updateUserProfile(preferences);
 
-      if (response.ok) {
-        const updatedProfile = await response.json();
-        setUserProfile(updatedProfile);
+      if (result.success) {
         setSuccess("Preferences updated successfully");
+        await refreshUser(); // Refresh user data across the app
       } else {
-        throw new Error("Failed to update preferences");
+        throw new Error(result.error || "Failed to update preferences");
       }
     } catch (error) {
       setError(error.message);
@@ -233,10 +195,8 @@ export default function AccountPage() {
     setError("");
 
     try {
-      const token = await user.getIdToken();
-
       if (addressForm.type === "billing" && !editingAddress) {
-        const hasBillingAddress = userProfile?.addresses?.some(
+        const hasBillingAddress = dbUser?.addresses?.some(
           (addr) => addr.type === "billing"
         );
 
@@ -248,6 +208,8 @@ export default function AccountPage() {
           return;
         }
       }
+
+      const token = await firebaseUser.getIdToken();
 
       const url = editingAddress
         ? `/api/users/addresses/${editingAddress._id}`
@@ -267,7 +229,7 @@ export default function AccountPage() {
       });
 
       if (response.ok) {
-        await fetchUserProfile();
+        await refreshUser(); // Refresh user data across the app
         setShowAddressModal(false);
         setSuccess(
           `Address ${editingAddress ? "updated" : "added"} successfully`
@@ -291,7 +253,7 @@ export default function AccountPage() {
     setError("");
 
     try {
-      const token = await user.getIdToken();
+      const token = await firebaseUser.getIdToken();
       const response = await fetch(`/api/users/addresses/${addressId}`, {
         method: "DELETE",
         headers: {
@@ -300,7 +262,7 @@ export default function AccountPage() {
       });
 
       if (response.ok) {
-        await fetchUserProfile();
+        await refreshUser(); // Refresh user data across the app
         setSuccess("Address deleted successfully");
       } else {
         throw new Error("Failed to delete address");
@@ -332,7 +294,7 @@ export default function AccountPage() {
     }
   }, [error, success]);
 
-  if (loading) {
+  if (userLoading) {
     return (
       <div className="min-h-screen bg-theme-bg-light dark:bg-theme-bg-dark flex items-center justify-center">
         <div className="text-center">
@@ -345,7 +307,7 @@ export default function AccountPage() {
     );
   }
 
-  if (!user) {
+  if (!firebaseUser) {
     return null;
   }
 
@@ -376,19 +338,19 @@ export default function AccountPage() {
                   size="lg"
                   rounded
                   img={
-                    user.photoURL ||
-                    userProfile?.avatar_url ||
+                    firebaseUser.photoURL ||
+                    dbUser?.avatar_url ||
                     "https://www.shutterstock.com/image-vector/default-avatar-profile-icon-social-600nw-1906669723.jpg?auto=compress&cs=tinysrgb&w=600"
                   }
                 />
                 <h3 className="text-lg font-semibold text-theme-text-primary-light dark:text-theme-text-primary-dark mt-2">
-                  {userProfile?.name || user?.displayName || "User"}
+                  {dbUser?.name || firebaseUser?.displayName || "User"}
                 </h3>
                 <p className="text-sm text-theme-text-secondary-light dark:text-theme-text-secondary-dark">
-                  {user?.email}
+                  {firebaseUser?.email}
                 </p>
                 <Badge color="success" className="mt-1">
-                  {user?.emailVerified ? "Verified" : "Unverified"}
+                  {firebaseUser?.emailVerified ? "Verified" : "Unverified"}
                 </Badge>
               </div>
 
@@ -536,7 +498,7 @@ export default function AccountPage() {
                         <div className="flex items-center">
                           <Checkbox
                             id="marketing_opt_in"
-                            checked={profileForm.marketing_opt_in} // Changed to marketing_opt_in
+                            checked={profileForm.marketing_opt_in}
                             onChange={(e) =>
                               setProfileForm({
                                 ...profileForm,
@@ -568,8 +530,8 @@ export default function AccountPage() {
                           Full Name
                         </div>
                         <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
-                          {userProfile?.name ||
-                            user?.displayName ||
+                          {dbUser?.name ||
+                            firebaseUser?.displayName ||
                             "Not provided"}
                         </div>
                       </div>
@@ -580,7 +542,7 @@ export default function AccountPage() {
                           Email Address
                         </div>
                         <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark truncate">
-                          {user?.email}
+                          {firebaseUser?.email}
                         </div>
                       </div>
 
@@ -590,7 +552,7 @@ export default function AccountPage() {
                           Phone Number
                         </div>
                         <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
-                          {userProfile?.phone || "Not provided"}
+                          {dbUser?.phone || "Not provided"}
                         </div>
                       </div>
 
@@ -600,7 +562,7 @@ export default function AccountPage() {
                           Total Orders
                         </div>
                         <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
-                          {userProfile?.order_count || 0} orders
+                          {dbUser?.order_count || 0} orders
                         </div>
                       </div>
 
@@ -610,8 +572,8 @@ export default function AccountPage() {
                           Total Spent
                         </div>
                         <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
-                          {userProfile?.preferred_currency || "USD"}{" "}
-                          {userProfile?.total_spent || "0.00"}
+                          {dbUser?.preferred_currency || "USD"}{" "}
+                          {dbUser?.total_spent || "0.00"}
                         </div>
                       </div>
 
@@ -621,7 +583,7 @@ export default function AccountPage() {
                           Email Notifications
                         </div>
                         <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark flex items-center">
-                          {userProfile?.email_notifications ? (
+                          {dbUser?.email_notifications ? (
                             <>
                               <Check
                                 size={14}
@@ -648,7 +610,7 @@ export default function AccountPage() {
                           Marketing Emails
                         </div>
                         <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark flex items-center">
-                          {userProfile?.marketing_opt_in ? (
+                          {dbUser?.marketing_opt_in ? (
                             <>
                               <Check
                                 size={14}
@@ -676,10 +638,10 @@ export default function AccountPage() {
                         </div>
                         <div className="flex items-center">
                           <Badge
-                            color={user?.emailVerified ? "success" : "warning"}
+                            color={firebaseUser?.emailVerified ? "success" : "warning"}
                             className="text-xs font-medium"
                           >
-                            {user?.emailVerified
+                            {firebaseUser?.emailVerified
                               ? "Verified"
                               : "Pending Verification"}
                           </Badge>
@@ -692,9 +654,9 @@ export default function AccountPage() {
                           Member Since
                         </div>
                         <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
-                          {userProfile?.created_at
+                          {dbUser?.created_at
                             ? new Date(
-                                userProfile.created_at
+                                dbUser.created_at
                               ).toLocaleDateString()
                             : "N/A"}
                         </div>
@@ -706,9 +668,9 @@ export default function AccountPage() {
                           Last Login
                         </div>
                         <div className="text-sm font-medium text-theme-text-primary-light dark:text-theme-text-primary-dark">
-                          {userProfile?.last_login_at
+                          {dbUser?.last_login_at
                             ? new Date(
-                                userProfile.last_login_at
+                                dbUser.last_login_at
                               ).toLocaleDateString()
                             : "N/A"}
                         </div>
@@ -752,9 +714,9 @@ export default function AccountPage() {
                   </Button>
                 </div>
 
-                {userProfile?.addresses && userProfile.addresses.length > 0 ? (
+                {dbUser?.addresses && dbUser.addresses.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {userProfile.addresses.map((address, index) => (
+                    {dbUser.addresses.map((address, index) => (
                       <div
                         key={address._id || index}
                         className="border rounded-lg p-3 border-theme-border-light dark:border-theme-border-dark"

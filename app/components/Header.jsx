@@ -1,6 +1,7 @@
+// app/components/Header.jsx - Updated version
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import {
   Avatar,
   Dropdown,
@@ -19,42 +20,25 @@ import Link from "next/link"
 import Image from "next/image"
 import Darkmode from "./Darkmode"
 import Cart from "./Cart"
+import { signOut } from "firebase/auth"
 import { auth } from "../../lib/firebaseClient"
-import { onAuthStateChanged, signOut } from "firebase/auth"
 import { useRouter } from "next/navigation"
+import { useUser } from "../context/UserContext" // Add this import
+
 
 const Header = () => {
-  const [user, setUser] = useState(null)
-  const [userProfile, setUserProfile] = useState(null)
+  // Replace all the useState and useEffect with this single line:
+  const { 
+    isAuthenticated, 
+    firebaseUser, 
+    name, 
+    email, 
+    avatar, 
+    loading,
+    isAdmin 
+  } = useUser()
+  
   const router = useRouter()
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser)
-        // Fetch user profile from API
-        try {
-          const token = await firebaseUser.getIdToken()
-          const response = await fetch("/api/users/profile", {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          })
-          if (response.ok) {
-            const profile = await response.json()
-            setUserProfile(profile)
-          }
-        } catch (error) {
-          console.error("Failed to fetch user profile:", error)
-        }
-      } else {
-        setUser(null)
-        setUserProfile(null)
-      }
-    })
-
-    return () => unsubscribe()
-  }, [])
 
   const handleSignOut = async () => {
     try {
@@ -107,7 +91,9 @@ const Header = () => {
               <Cart />
             </div>
             <div>
-              {user ? (
+              {loading ? (
+                <span className="text-gray-500">Loading...</span>
+              ) : isAuthenticated && name ? (
                 <Dropdown
                   arrowIcon={true}
                   inline
@@ -117,8 +103,8 @@ const Header = () => {
                         size="sm"
                         rounded
                         img={
-                          user.photoURL ||
-                          "https://www.shutterstock.com/image-vector/default-avatar-profile-icon-social-600nw-1906669723.jpg?auto=compress&cs=tinysrgb&w=600"
+                          avatar ||
+                          "https://www.shutterstock.com/image-vector/default-avatar-profile-icon-social-600nw-1906669723.jpg"
                         }
                       />
                     </span>
@@ -126,12 +112,15 @@ const Header = () => {
                 >
                   <div className="w-[150px]">
                     <DropdownHeader>
-                      <span className="block text-sm">{userProfile?.name || user.displayName || "User"}</span>
-                      <span className="block truncate text-sm font-semibold">{user.email}</span>
+                      <span className="block text-sm">{name || "User"}</span>
+                      <span className="block truncate text-sm font-semibold">{email}</span>
                     </DropdownHeader>
                     <DropdownItem onClick={() => router.push("/account")}>Profile</DropdownItem>
                     <DropdownItem>Dashboard</DropdownItem>
                     <DropdownItem>Orders</DropdownItem>
+                    {isAdmin && (
+                      <DropdownItem onClick={() => router.push("/admin")}>Admin Panel</DropdownItem>
+                    )}
                     <DropdownItem>Settings</DropdownItem>
                     <DropdownDivider />
                     <DropdownItem onClick={handleSignOut}>Sign out</DropdownItem>
